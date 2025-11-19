@@ -3,8 +3,10 @@ import chromadb
 import uuid
 from typing import Any
 import numpy as np
-import summarizer as summarizer_object
-from EmbeddingManager import EmbeddingManager
+
+# Below lines are used only for testing purpose of VectorStore class
+# import summarizer as summarizer_object
+# from EmbeddingManager import EmbeddingManager
 
 class VectorStore:
     
@@ -47,7 +49,6 @@ class VectorStore:
             self.chroma_client = chromadb.PersistentClient(path=self.persist_directory)
             
             # Create or get collection
-
             self.collection = self.chroma_client.get_or_create_collection(
                     name=self.collection_name,
                     metadata= self.dict_of_metadata #{"description": "Collection of PDF documents embeddings"}
@@ -71,23 +72,18 @@ class VectorStore:
             if len(self.documents) != len(self.embeddings):
                 raise ValueError("The number of documents must match the number of embeddings.")
 
-            for i, (doc, embeddings, metadata_text) in enumerate(zip(self.documents, self.embeddings, self.collection.metadata.values())):
+            for i, (doc, embeddings) in enumerate(zip(self.documents, self.embeddings)):
 
                 # Generate a unique ID for each document                
                 doc_id = f"docu_{uuid.uuid4().hex[:8]}_{i}"
                 ids.append(doc_id)
 
-                # metadata_object = {} #dict(doc['metadata'])  # ensure it's a dict
-                # metadata_object["Source"] = doc['metadata']['source']
-                # metadata_object["Page_Number"] = doc['metadata']['page']
-                
-                # metadata_object['source'] = doc['metadata']['source']
-                # metadata_object['page'] = doc['metadata']['page']
-
                 # document content addition
                 document_text.append(doc['text'])
 
-                metadata_collection.append(metadata_text)
+                metadata_object = dict(doc['metadata'])  # ensure it's a dict
+                metadata_object['doc_index'] = i
+                metadata_collection.append(metadata_object)
 
                 # embedding addition
                 embedding_list.append(embeddings.tolist())
@@ -111,16 +107,16 @@ class VectorStore:
 #**********************************************************************************************************
 # This is only for the testing purpose of VectorStore class
 #**********************************************************************************************************
-embeddings_manager = EmbeddingManager(model_name = "sentence-transformers/all-mpnet-base-v2")
-pdf_chunks = summarizer_object.genreate_pdf_chunks(summarizer_object.load_pdf())
-print(f"Total PDF Chunks: {len(pdf_chunks)}")
-print(pdf_chunks)
-Data_path = "data/pdf"
-generated_texts = [chunk['text'] for chunk in pdf_chunks]
-final_embeddings = embeddings_manager.generate_embeddings(generated_texts)
+# embeddings_manager = EmbeddingManager(model_name = "sentence-transformers/all-mpnet-base-v2")
+# pdf_chunks = summarizer_object.genreate_pdf_chunks(summarizer_object.load_pdf())
+# print(f"Total PDF Chunks: {len(pdf_chunks)}")
+# print(pdf_chunks)
+# Data_path = "data/pdf"
+# generated_texts = [chunk['text'] for chunk in pdf_chunks]
+# final_embeddings = embeddings_manager.generate_embeddings(generated_texts)
 
-vector_store = VectorStore(documents=pdf_chunks, embeddings=final_embeddings)
-vector_store.add_documents()        
+# vector_store = VectorStore(documents=pdf_chunks, embeddings=final_embeddings)
+# vector_store.add_documents()        
 
 
 

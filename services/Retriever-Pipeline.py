@@ -16,6 +16,8 @@ class RetrieverPipeline:
 
         # Generate embedding for the query
         query_embedding = self.embeddings.generate_embeddings([query])[0]
+        query_flatten_vector = query_embedding.flatten()
+
         if query_embedding.size == 0:
             print("Failed to generate embedding for the query.")
             return []
@@ -26,7 +28,8 @@ class RetrieverPipeline:
             metadata_text = []
             ids = []
             distances = []
-            similarity_score = []
+            map_doc_score = {}
+            final_retrieved_docs = []
 
             if self.vector_store.collection:
                 results = self.vector_store.collection.query(query_embeddings = [query_embedding.tolist()], n_results=top_k)
@@ -46,30 +49,46 @@ class RetrieverPipeline:
                             "rank": i + 1
                         })
 
-            for doc in retrieved_docs:
-                #print(f"Retrieved Document ID: {doc['id']}, Distance: {doc['distance']}, Rank: {doc['rank']}")
-                similarity_score.append(1 - distance.cosine(query_embedding, doc['distance']))
+            if self.embeddings is not None and self.embeddings.model is not None:
 
+                for doc in retrieved_docs:
+                    
+                    doc_embedding = self.embeddings.generate_embeddings([doc['text']])[0]
+                    doc_flatten_vector = doc_embedding.flatten()
+                    
+                    # Calculate similarity score (e.g., cosine similarity)  
+                    score = 1 - distance.cosine(query_flatten_vector, doc_flatten_vector)
+                    map_doc_score[score] = doc['text']
+
+                    final_retrieved_docs.append({
+                        "text": doc['text'],
+                        "similarity_score": score,
+                        "metadata": doc['metadata']
+                    })
+                
         except Exception as e:
             print(f"Error during retrieval: {e}")
             return []
         
-        return retrieved_docs
+        return final_retrieved_docs
 
-embeddings_manager = EmbeddingManager(model_name = "all-MiniLM-L6-v2") #sentence-transformers/all-mpnet-base-v2
-pdf_chunks = summarizer_object.genreate_pdf_chunks(summarizer_object.load_pdf())
-print(f"Total PDF Chunks: {len(pdf_chunks)}")
-print(pdf_chunks)
-Data_path = "data/pdf"
-generated_texts = [chunk['text'] for chunk in pdf_chunks]
-final_embeddings = embeddings_manager.generate_embeddings(generated_texts)
+#**********************************************************************************************************
+# This is only to test the RetrieverPipeline class
+#**********************************************************************************************************
+# embeddings_manager = EmbeddingManager(model_name = "all-MiniLM-L6-v2") #sentence-transformers/all-mpnet-base-v2
+# pdf_chunks = summarizer_object.genreate_pdf_chunks(summarizer_object.load_pdf())
+# print(f"Total PDF Chunks: {len(pdf_chunks)}")
+# print(pdf_chunks)
+# Data_path = "data/pdf"
+# generated_texts = [chunk['text'] for chunk in pdf_chunks]
+# final_embeddings = embeddings_manager.generate_embeddings(generated_texts)
 
-vector_store = VectorStore(documents=pdf_chunks, embeddings=final_embeddings)
-vector_store.add_documents()   
+# vector_store = VectorStore(documents=pdf_chunks, embeddings=final_embeddings)
+# vector_store.add_documents()   
 
-rag_retriever_pipeline = RetrieverPipeline(vector_store=vector_store, embeddings= embeddings_manager)
+# rag_retriever_pipeline = RetrieverPipeline(vector_store=vector_store, embeddings= embeddings_manager)
 
-results = rag_retriever_pipeline.retrieve("What professional skills are needed for Integration Architect", 4)
-print(f"Retrieved {len(results)} documents:")
-for doc in results:
-    print(doc)
+# results = rag_retriever_pipeline.retrieve("What professional skills are needed for Integration Architect", 4)
+# print(f"Retrieved {len(results)} documents:")
+# for doc in results:
+#     print(doc)
